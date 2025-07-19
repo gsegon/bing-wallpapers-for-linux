@@ -11,7 +11,7 @@ api="/HPImageArchive.aspx?"
 format="&format=js"
 
 # For day (0=current; 1=yesterday... so on).
-day="&idx=1"
+day="&idx=0"
 
 # Market for image.
 market="&mkt=de-AT"
@@ -162,7 +162,7 @@ do
 
   # Req image url (raw).
   reqImgURL=$bing$(echo $apiResp | grep -oP "urlbase\":\"[^\"]*" | cut -d "\"" -f 3)"_"$size$extn
-
+  
   # Image copyright.
   copyright=$(echo $apiResp | grep -oP "copyright\":\"[^\"]*" | cut -d "\"" -f 3)
 
@@ -188,7 +188,7 @@ do
 
   # Writing copyright.
   echo "$copyright" > $path${imgName/%.jpg/.txt}
-
+  
   if [ "$XDG_CURRENT_DESKTOP" = "XFCE" ]
   then
     xres=($(echo $(xfconf-query --channel xfce4-desktop --list | grep last-image)))
@@ -203,37 +203,34 @@ do
   then
     gsettings set org.mate.background picture-filename $path$imgName
   # Set the wallpaper for unity, gnome3, cinnamon.
-  elif  [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] ||
-        [ "$XDG_CURRENT_DESKTOP" = "ubuntu:GNOME" ] ||
-        [ "$XDG_CURRENT_DESKTOP" = "Unity" ] ||
-        [ "$XDG_CURRENT_DESKTOP" = "Pantheon" ] ||
-        [ "$XDG_CURRENT_DESKTOP" = "X-Cinnamon" ]
+  elif  [ "$XDG_CURRENT_DESKTOP" = "GNOME" ]
   then
-
-    echo "$copyright"
-    watermark_text="$copyright"
-
-
     # Set the wallpaper to both 'light' and 'dark' modes.
     gsettings set org.gnome.desktop.background picture-uri "file://$path$imgName"
     gsettings set org.gnome.desktop.background picture-uri-dark "file://$path$imgName"
     # Set the view to zoom
     gsettings set org.gnome.desktop.background picture-options "zoom"
+ # Set the wallpaper for unity, gnome3, cinnamon.
+ elif gsettings set org.gnome.desktop.background picture-uri "file://$path$imgName"; then
+    #Logging
+    # Set the view to zoom,
+    gsettings set org.gnome.desktop.background picture-options "zoom"
 
     # Setup the text overlay if watermark text is provided
     # Setup the text overlay if copyright is not empty
-    if [ -n "$copyright" ]; then
-      echo "Setting up overlay with copyright text"
-      setup_gnome_overlay "$copyright"
-    else
-      echo "No copyright text found, skipping overlay"
-    fi
+
 
 
   else
     echo "$XDG_CURRENT_DESKTOP not supported."
     break
+  fi
 
+  if [ -n "$copyright" ]; then
+    echo "Setting up overlay with copyright text"
+    setup_gnome_overlay "$copyright"
+  else
+    echo "No copyright text found, skipping overlay"
   fi
 
   echo "New wallpaper set successfully for $XDG_CURRENT_DESKTOP."
