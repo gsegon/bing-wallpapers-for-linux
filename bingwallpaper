@@ -11,10 +11,10 @@ api="/HPImageArchive.aspx?"
 format="&format=js"
 
 # For day (0=current; 1=yesterday... so on).
-day="&idx=0"
+day="&idx=1"
 
 # Market for image.
-market="&mkt=en-US"
+market="&mkt=de-AT"
 
 # API Constant (fetch how many).
 const="&n=1"
@@ -23,7 +23,7 @@ const="&n=1"
 extn=".jpg"
 
 # Size.
-size="1920x1200"
+size="UHD"
 
 # Collection Path.
 path="$HOME/Pictures/Bing/"
@@ -46,6 +46,101 @@ done
 #### DO NOT EDIT BELOW THIS LINE #######################################
 ########################################################################
 
+setup_gnome_overlay() {
+  local overlay_text="$1"
+
+  # Escape special characters for conky
+  overlay_text=$(echo "$overlay_text" | sed 's/[&]/\\&/g; s/[\$]/\\$/g; s/[\"]/\\"/g')
+
+  # Check if conky is installed
+  if ! command -v conky &> /dev/null; then
+    echo "Conky is not installed. Installing..."
+    if command -v apt &> /dev/null; then
+      sudo apt install conky-all -y
+    elif command -v dnf &> /dev/null; then
+      sudo dnf install conky -y
+    elif command -v pacman &> /dev/null; then
+      sudo pacman -S conky -y
+    else
+      echo "Could not install conky. Please install it manually."
+      return 1
+    fi
+  fi
+
+  # Create conky config for text overlay with anti-flickering settings
+  mkdir -p $HOME/.config/conky
+
+  # Write the config file properly with escaped text
+  cat > $HOME/.config/conky/watermark.conf << EOF
+conky.config = {
+    alignment = 'bottom_right',
+    background = true,
+    border_width = 0,
+    font = 'DejaVu Sans Mono:size=12',
+    draw_borders = false,
+    gap_x = 20,
+    gap_y = 20,
+    minimum_height = 5,
+    minimum_width = 300,
+    maximum_width = 800,
+    own_window = true,
+    own_window_class = 'Conky',
+    own_window_type = 'desktop',
+    own_window_transparent = true,
+    own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
+    own_window_argb_visual = true,
+    own_window_argb_value = 0,
+    double_buffer = true,
+    no_buffers = true,
+    text_buffer_size = 2048,
+    update_interval = 1.0,
+    use_xft = true,
+    color1 = 'white',
+    color2 = '#8888FF',
+    own_window_colour = '#000000',
+}
+
+conky.text = [[
+\${color1}\${font DejaVu Sans:size=14:bold}${overlay_text}\${font}
+]]
+EOF
+
+  # Kill any existing conky process
+  pkill conky 2>/dev/null || true
+
+  # Debug: Display what we're about to run
+  echo "Setting up conky with text: ${overlay_text}"
+
+  # Start conky with our config in the background and log output for debugging
+  nohup conky -c $HOME/.config/conky/watermark.conf > $HOME/.config/conky/conky.log 2>&1 &
+
+  # Wait a bit and check if conky is running
+  sleep 2
+  if ! pgrep conky > /dev/null; then
+    echo "Conky failed to start. Check $HOME/.config/conky/conky.log for details."
+    return 1
+  fi
+
+  # Ensure conky starts on login
+  mkdir -p $HOME/.config/autostart
+  cat > $HOME/.config/autostart/watermark-conky.desktop << EOF
+[Desktop Entry]
+Type=Application
+Exec=conky -c $HOME/.config/conky/watermark.conf
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name[en_US]=Desktop Watermark
+Name=Desktop Watermark
+Comment[en_US]=Displays a watermark on the desktop
+Comment=Displays a watermark on the desktop
+EOF
+
+  echo "Watermark overlay setup complete"
+}
+
+
+
 # Required Image Uri.
 reqImg=$bing$api$format$day$market$const
 
@@ -67,7 +162,7 @@ do
 
   # Req image url (raw).
   reqImgURL=$bing$(echo $apiResp | grep -oP "urlbase\":\"[^\"]*" | cut -d "\"" -f 3)"_"$size$extn
-  
+
   # Image copyright.
   copyright=$(echo $apiResp | grep -oP "copyright\":\"[^\"]*" | cut -d "\"" -f 3)
 
@@ -93,7 +188,7 @@ do
 
   # Writing copyright.
   echo "$copyright" > $path${imgName/%.jpg/.txt}
-  
+
   if [ "$XDG_CURRENT_DESKTOP" = "XFCE" ]
   then
     xres=($(echo $(xfconf-query --channel xfce4-desktop --list | grep last-image)))
@@ -108,13 +203,37 @@ do
   then
     gsettings set org.mate.background picture-filename $path$imgName
   # Set the wallpaper for unity, gnome3, cinnamon.
-  elif gsettings set org.gnome.desktop.background picture-uri "file://$path$imgName"; then
-    #Logging
-    # Set the view to zoom,
+  elif  [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] ||
+        [ "$XDG_CURRENT_DESKTOP" = "ubuntu:GNOME" ] ||
+        [ "$XDG_CURRENT_DESKTOP" = "Unity" ] ||
+        [ "$XDG_CURRENT_DESKTOP" = "Pantheon" ] ||
+        [ "$XDG_CURRENT_DESKTOP" = "X-Cinnamon" ]
+  then
+
+    echo "$copyright"
+    watermark_text="$copyright"
+
+
+    # Set the wallpaper to both 'light' and 'dark' modes.
+    gsettings set org.gnome.desktop.background picture-uri "file://$path$imgName"
+    gsettings set org.gnome.desktop.background picture-uri-dark "file://$path$imgName"
+    # Set the view to zoom
     gsettings set org.gnome.desktop.background picture-options "zoom"
+
+    # Setup the text overlay if watermark text is provided
+    # Setup the text overlay if copyright is not empty
+    if [ -n "$copyright" ]; then
+      echo "Setting up overlay with copyright text"
+      setup_gnome_overlay "$copyright"
+    else
+      echo "No copyright text found, skipping overlay"
+    fi
+
+
   else
     echo "$XDG_CURRENT_DESKTOP not supported."
     break
+
   fi
 
   echo "New wallpaper set successfully for $XDG_CURRENT_DESKTOP."
