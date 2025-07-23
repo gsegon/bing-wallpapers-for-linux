@@ -219,8 +219,6 @@ do
     # Setup the text overlay if watermark text is provided
     # Setup the text overlay if copyright is not empty
 
-
-
   else
     echo "$XDG_CURRENT_DESKTOP not supported."
     break
