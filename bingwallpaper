@@ -14,7 +14,7 @@ format="&format=js"
 day="&idx=0"
 
 # Market for image.
-market="&mkt=en-US"
+market="&mkt=de-AT"
 
 # API Constant (fetch how many).
 const="&n=1"
@@ -23,7 +23,7 @@ const="&n=1"
 extn=".jpg"
 
 # Size.
-size="1920x1200"
+size="UHD"
 
 # Collection Path.
 path="$HOME/Pictures/Bing/"
@@ -111,8 +111,8 @@ do
   elif  [ "$XDG_CURRENT_DESKTOP" = "GNOME" ]
   then
     # Set the wallpaper to both 'light' and 'dark' modes.
-    gsettings set org.gnome.desktop.background picture-uri "file://$path$imgName"
-    gsettings set org.gnome.desktop.background picture-uri-dark "file://$path$imgName"
+    gsettings set org.gnome.desktop.background picture-uri $path$imgName
+    gsettings set org.gnome.desktop.background picture-uri-dark $path$imgName
     # Set the view to zoom
     gsettings set org.gnome.desktop.background picture-options "zoom"
  # Set the wallpaper for unity, gnome3, cinnamon.
